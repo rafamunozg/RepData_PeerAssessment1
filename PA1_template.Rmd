@@ -1,25 +1,109 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
 
 
 ## Loading and preprocessing the data
+```{r echo=TRUE}
+#Reading data .zip directly from the fork made from the PA template
+if (!file.exists("./data/activity.csv")){
+     unzip("activity.zip", exdir = "./data")
+     }
+steps <- read.csv("data//activity.csv", header = T, na.strings = "NA")
 
-
+#Now transform treat dates as data type date
+steps <- transform(steps, date = as.Date(date))
+```
 
 ## What is mean total number of steps taken per day?
+* Total step count
+```{r echo=TRUE}
+sum(steps$steps, na.rm = TRUE)
+```
 
+* Histogram of steps count:
+```{r echo=TRUE, fig.height=4}
+hist(steps$steps, main="Step count every 5 min", 
+     ylab="Frecuency", 
+     xlab="Number of steps", 
+     col="blue")
+```
 
+* Mean of steps
+``` {r echo=TRUE}
+mean(steps$steps, na.rm = TRUE)
+```
+* Median of steps
+```{r echo=TRUE}
+median(steps$steps, na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
+```{r echo=FALSE, results='hide'}
+#Loading library, no really need to echo it
+library(dplyr)
+```
 
+* Average daily pattern
+```{r echo=TRUE}
+summarized <- group_by(steps, interval) %>%
+summarise(avgPerInterval = mean(steps, na.rm = TRUE))
+plot.ts(summarized$avgPerInterval, main="Mean steps by interval", xlab="Intervals", ylab="Avg. steps")
+```
 
+* Maximum interval count is
+```{r echo=TRUE}
+summarized[max(summarized$avgPerInterval),1]
+```
 
 ## Imputing missing values
+* Total number of missing values (NA)
+```{r echo=TRUE}
+sum(is.na(steps$steps))
+```
+* Filling in NA's, by using the mean number of steps in the interval
+``` {r echo=TRUE}
+     steps2 <- steps
+     
+     for(i in 1:nrow(steps2)) {
+         if(is.na(steps2[i,1])) {
+              steps2[i,1] <- summarized[summarized$interval == steps2[i,3],2]
+         }
+     }
+```
 
 
+* Histogram of filled NAs with average per interval
+```{r echo=TRUE, fig.height=4}
+     hist(steps2$steps, main="Filled NA with average steps, count every 5 min", 
+          ylab="Frecuency", 
+          xlab="Number of steps", 
+          col="red")
+
+```
+
+* Mean and Median of filled NAs
+```{r echo=TRUE}
+mean(steps2$steps)
+median(steps2$steps)
+```
+** Comparing with previous numbers, I don't see significant changes with the filled in values. Further analysis may be needed.**
 
 ## Are there differences in activity patterns between weekdays and weekends?
+``` {r echo=TRUE}
+#split the values in weekdays and weekends. 3 step process to better deal with partial mutations
+steps2 <- mutate(steps2, daytype=1)
+steps2[!weekdays(steps2$date) %in% c("Saturday","Sunday"),4]="weekday"
+steps2[steps2$daytype==1,4]="weekend"
+steps2 <- mutate(steps2, daytype = as.factor(daytype))
+
+summarized2 <- group_by(steps2, daytype, interval)
+summarized2 <- summarise(summarized2, stepsavg=mean(steps))
+
+```
+
+Now showing the differences as a time series
+``` {r echo=TRUE}
+plot.ts(summarized2[summarized2$daytype=="weekday",3],
+        main="Average steps during weekdays", ylab="Avg. steps", xlab="intervals")
+plot.ts(summarized2[summarized2$daytype=="weekend",3],
+        main="Average steps during weekends", ylab="Avg. steps", xlab="intervals")
+```
+** There is certainly a difference between the steps given during the week and on weekends
